@@ -1,897 +1,1252 @@
-<!DOCTYPE html>
-<!--
-  CxO Adaptive Montage Studio
-  Single-file browser application for generating 4:5 event montage videos.
-
-  Architecture:
-  - HTML: application structure and accessible controls
-  - CSS: responsive CxO-branded interface
-  - JavaScript: local file loading, adaptive layouts, canvas editing, preview and export
-
-  Privacy: selected images remain in the browser and are not uploaded to a server.
--->
-<html>
- <head>
+<!doctype html>
+<html lang="en">
+<head>
   <meta charset="utf-8">
-  <meta content="width=device-width,initial-scale=1" name="viewport">
-  <title>
-   CxO Adaptive Montage
-  </title>
-  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CxO Montage Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
-   * {
-  box-sizing:border-box}
+    :root {
+      --navy-950: #061124;
+      --navy-900: #0b1732;
+      --navy-800: #132949;
+      --teal-500: #31859d;
+      --cyan-400: #70c6dc;
+      --text: #f5f8fb;
+      --muted: #9eb0c5;
+      --danger: #ff9d9d;
+      --border: rgba(112, 198, 220, 0.18);
+    }
 
-body {
-  margin:0;
-  background:#071326;
-  color:#f5f8fb;
-  font-family:Barlow,Arial}
+    * { box-sizing: border-box; }
 
-header,main {
-  width:min(1200px,calc(100% - 32px));
-  margin:auto}
+    html { color-scheme: dark; }
 
-header {
-  height:82px;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  border-bottom:1px solid #ffffff18}
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: radial-gradient(circle at 88% 0, rgba(49, 133, 157, 0.25), transparent 30%), var(--navy-950);
+      color: var(--text);
+      font-family: "Barlow", Arial, sans-serif;
+    }
 
-.brand {
-  font-size:29px;
-  font-weight:700}
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+    button:disabled { cursor: not-allowed; opacity: 0.45; }
 
-.brand span {
-  font-weight:300}
+    .app-shell { width: min(1500px, calc(100% - 32px)); margin: 0 auto; }
 
-.tag {
-  color:#70c6dc;
-  letter-spacing:3px;
-  font-size:12px}
+    .topbar {
+      min-height: 82px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
 
-.hero {
-  padding:42px 0 28px}
+    .brand { font-size: 30px; font-weight: 700; }
+    .brand span { font-weight: 300; }
+    .tag { color: var(--cyan-400); font-size: 12px; letter-spacing: 0.22em; }
 
-.hero h1 {
-  font-size:55px;
-  font-weight:300;
-  margin:0 0 12px}
+    .hero { padding: 38px 0 24px; }
+    .hero h1 { max-width: 900px; margin: 0 0 12px; font-size: clamp(38px, 5vw, 68px); font-weight: 300; line-height: 1; }
+    .hero p { max-width: 920px; margin: 0; color: var(--muted); font-size: 18px; line-height: 1.5; }
 
-.hero p {
-  color:#9eb0c5;
-  font-size:18px}
+    .panel {
+      background: linear-gradient(145deg, rgba(19, 41, 73, 0.96), rgba(11, 23, 50, 0.96));
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      box-shadow: 0 22px 65px rgba(0, 0, 0, 0.38);
+    }
 
-.panel {
-  background:linear-gradient(145deg,#132949,#0b1732);
-  border:1px solid #70c6dc28;
-  border-radius:18px;
-  padding:20px;
-  box-shadow:0 24px 70px #0006}
+    .uploads { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .upload-panel { padding: 20px; }
+    .upload-panel h2 { margin: 0 0 7px; font-size: 20px; font-weight: 500; }
+    .upload-panel p { margin: 0 0 14px; color: var(--muted); }
 
-.uploads,.workspace {
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:16px}
+    .button {
+      min-height: 42px;
+      padding: 10px 15px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--text);
+    }
 
-.upload button,button {
-  border:1px solid #ffffff22;
-  color:white;
-  background:#ffffff10;
-  border-radius:10px;
-  padding:11px 15px;
-  cursor:pointer}
+    .button.primary { border: 0; background: linear-gradient(135deg, var(--teal-500), #26768d); font-weight: 600; }
+    .button.danger { border-color: rgba(255, 157, 157, 0.35); color: var(--danger); }
+    .file-name { display: inline-block; margin-left: 10px; color: var(--muted); }
 
-.primary {
-  background:#31859d;
-  border:0}
+    .workspace[hidden] { display: none; }
 
-.upload span {
-  margin-left:12px;
-  color:#9eb0c5}
+    .stats { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin: 18px 0; }
+    .stat { padding: 15px; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; background: rgba(255, 255, 255, 0.045); }
+    .stat span { display: block; color: var(--muted); font-size: 12px; }
+    .stat strong { font-size: 29px; font-weight: 400; }
 
-.stats {
-  display:grid;
-  grid-template-columns:repeat(5,1fr);
-  gap:10px;
-  margin:18px 0}
+    .studio-grid { display: grid; grid-template-columns: 280px minmax(460px, 1fr) 320px; gap: 16px; align-items: start; }
+    .settings, .preview-panel, .library-panel { padding: 18px; }
+    .settings { display: flex; flex-direction: column; gap: 12px; }
+    .settings h2, .library-panel h2 { margin: 0; font-size: 21px; font-weight: 500; }
+    .control { display: flex; flex-direction: column; gap: 6px; color: var(--muted); }
+    .control select { width: 100%; padding: 10px; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 9px; background: var(--navy-950); color: var(--text); }
+    .check-row { display: flex; gap: 8px; align-items: center; color: var(--muted); }
+    .settings .button { width: 100%; }
 
-.stats div {
-  padding:15px;
-  background:#ffffff08;
-  border-radius:12px}
+    .canvas-frame {
+      position: relative;
+      width: min(100%, 520px);
+      margin: 0 auto;
+      aspect-ratio: 4 / 5;
+      overflow: hidden;
+      background: #0b1d39;
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
+    }
 
-.stats small {
-  display:block;
-  color:#9eb0c5}
+    canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+    .drop-active { outline: 4px solid var(--cyan-400); outline-offset: -4px; }
 
-.stats b {
-  font-size:29px;
-  font-weight:400}
+    .toolbar, .transport, .scene-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      margin-top: 12px;
+    }
 
-.workspace {
-  grid-template-columns:300px 1fr}
+    .toolbar .button, .transport .button, .scene-actions .button { min-height: 38px; padding: 8px 12px; }
+    .hint, .status { margin-top: 9px; color: var(--muted); font-size: 12px; text-align: center; }
+    .progress { height: 7px; margin-top: 12px; overflow: hidden; border-radius: 8px; background: rgba(255, 255, 255, 0.08); }
+    .progress-bar { width: 0; height: 100%; background: linear-gradient(90deg, var(--teal-500), var(--cyan-400)); }
 
-.controls {
-  display:flex;
-  flex-direction:column;
-  gap:12px}
+    .library-head { display: flex; justify-content: space-between; gap: 8px; align-items: end; margin-bottom: 12px; }
+    .library-head small { color: var(--muted); }
+    .library-search { width: 100%; margin-bottom: 10px; padding: 10px; border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 9px; background: var(--navy-950); color: var(--text); }
+    .photo-library { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; max-height: 690px; overflow: auto; padding-right: 4px; }
 
-.controls label {
-  display:flex;
-  flex-direction:column;
-  gap:6px;
-  color:#9eb0c5}
+    .photo-card {
+      position: relative;
+      padding: 0;
+      overflow: hidden;
+      border: 2px solid transparent;
+      border-radius: 9px;
+      background: #071326;
+      color: white;
+      text-align: left;
+    }
 
-select,input {
-  font:inherit}
+    .photo-card:hover, .photo-card.selected { border-color: var(--cyan-400); }
+    .photo-card.used::after { content: "USED"; position: absolute; top: 6px; right: 6px; padding: 3px 5px; border-radius: 5px; background: rgba(6, 17, 36, 0.82); color: var(--cyan-400); font-size: 9px; font-weight: 700; }
+    .photo-card img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; }
+    .photo-card span { display: block; padding: 6px; overflow: hidden; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 
-select {
-  background:#071326;
-  color:#fff;
-  border:1px solid #ffffff22;
-  padding:9px;
-  border-radius:8px}
+    .storyboard { margin: 16px 0 40px; padding: 18px; }
+    .storyboard-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .storyboard-head h2 { margin: 0; }
+    .scene-list { display: flex; gap: 8px; margin-top: 14px; overflow-x: auto; padding-bottom: 8px; }
+    .scene-card { min-width: 132px; padding: 10px; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 10px; background: rgba(255, 255, 255, 0.04); color: var(--text); }
+    .scene-card.active { border-color: var(--cyan-400); background: rgba(49, 133, 157, 0.14); }
+    .scene-card span { display: block; color: var(--muted); font-size: 11px; }
 
-.stage {
-  text-align:center}
+    @media (max-width: 1150px) {
+      .studio-grid { grid-template-columns: 260px 1fr; }
+      .library-panel { grid-column: 1 / -1; }
+      .photo-library { grid-template-columns: repeat(6, 1fr); max-height: 330px; }
+    }
 
-.canvasWrap {
-  max-width:430px;
-  aspect-ratio:4/5;
-  margin:auto;
-  background:#0b1d39;
-  position:relative}
-
-canvas {
-  width:100%;
-  height:100%;
-  display:block}
-
-.tools,.transport {
-  display:flex;
-  gap:7px;
-  justify-content:center;
-  flex-wrap:wrap;
-  margin-top:12px}
-
-.tools .danger {
-  color:#ffb9b9}
-
-.hint,.status {
-  color:#9eb0c5;
-  font-size:12px;
-  margin-top:8px}
-
-.selected {
-  color:#70c6dc}
-
-.story {
-  margin-top:18px}
-
-.cards {
-  display:flex;
-  gap:8px;
-  overflow:auto}
-
-.card {
-  min-width:125px;
-  background:#ffffff08;
-  border:1px solid #ffffff18;
-  color:#fff;
-  padding:10px;
-  border-radius:10px;
-  cursor:pointer}
-
-.card.active {
-  border-color:#70c6dc}
-
-.progress {
-  height:6px;
-  background:#ffffff12;
-  margin-top:12px}
-
-.bar {
-  height:100%;
-  width:0;
-  background:#70c6dc}
-
-@media(max-width:800px) {
-  .uploads,.workspace {
-  grid-template-columns:1fr}
-
-.stats {
-  grid-template-columns:1fr 1fr}
-
-}
+    @media (max-width: 760px) {
+      .uploads, .studio-grid { grid-template-columns: 1fr; }
+      .stats { grid-template-columns: repeat(2, 1fr); }
+      .photo-library { grid-template-columns: repeat(3, 1fr); }
+      .tag { display: none; }
+    }
   </style>
- </head>
- <body>
-  <header>
-   <div class="brand">
-    CXO
-    <span>
-     series
-    </span>
-   </div>
-   <div class="tag">
-    ADAPTIVE MONTAGE STUDIO
-   </div>
-  </header>
-  <main>
-   <section class="hero">
-    <h1>
-     Full-frame layouts. Better motion.
-    </h1>
-    <p>
-     Every scene uses a defined grid, orientation-aware photo matching, and a separate logo-safe header.
-    </p>
-   </section>
-   <section class="uploads">
-    <div class="panel upload">
-     <h2>
-      Event photographs
-     </h2>
-     <input accept="image/*" hidden id="folder" multiple type="file" webkitdirectory>
-     <button class="primary" id="pick">
-      Select image folder
-     </button>
-     <span id="folderName">
-      None selected
-     </span>
-    </div>
-    <div class="panel upload">
-     <h2>
-      Actual logo
-     </h2>
-     <input accept="image/*" hidden id="logoInput" type="file">
-     <button id="pickLogo">
-      Upload logo
-     </button>
-     <span id="logoName">
-      None selected
-     </span>
-    </div>
-   </section>
-   <section hidden id="app">
-    <div class="stats">
-     <div>
-      <small>
-       Scanned
-      </small>
-      <b id="scanned">
-       0
-      </b>
-     </div>
-     <div>
-      <small>
-       Custom used
-      </small>
-      <b id="used">
-       0
-      </b>
-     </div>
-     <div>
-      <small>
-       Portrait
-      </small>
-      <b id="portraits">
-       0
-      </b>
-     </div>
-     <div>
-      <small>
-       Landscape
-      </small>
-      <b id="landscapes">
-       0
-      </b>
-     </div>
-     <div>
-      <small>
-       Scenes
-      </small>
-      <b id="sceneCount">
-       0
-      </b>
-     </div>
-    </div>
-    <div class="workspace">
-     <aside class="panel controls">
-      <h2>
-       Settings
-      </h2>
-      <label>
-       Duration
-       <select id="duration">
-        <option>
-         60
-        </option>
-        <option selected>
-         90
-        </option>
-        <option>
-         120
-        </option>
-       </select>
-      </label>
-      <label>
-       Motion
-       <select id="motion">
-        <option value="elegant">
-         Elegant rise
-        </option>
-        <option selected value="dynamic">
-         Dynamic slide
-        </option>
-        <option value="energy">
-         High energy
-        </option>
-        <option value="cinematic">
-         Cinematic push
-        </option>
-       </select>
-      </label>
-      <label>
-       Layout
-       <select id="layout">
-        <option value="auto">
-         Automatic rotation
-        </option>
-        <option value="hero">
-         Hero
-        </option>
-        <option value="mixed">
-         Mixed feature
-        </option>
-        <option value="trio">
-         Portrait trio
-        </option>
-        <option value="quad">
-         Balanced four
-        </option>
-        <option value="feature5">
-         Feature plus four
-        </option>
-        <option value="cinema5">
-         Cinematic five
-        </option>
-        <option value="grid6">
-         Six-image grid
-        </option>
-        <option value="mosaic7">
-         Seven-image mosaic
-        </option>
-        <option value="rows3">
-         Three wide rows
-        </option>
-        <option value="filmstrip">
-         Moving filmstrip
-        </option>
-       </select>
-      </label>
-      <label>
-       Logo position
-       <select id="logoPos">
-        <option value="tc">
-         Top centre
-        </option>
-        <option value="tl">
-         Top left
-        </option>
-        <option value="tr">
-         Top right
-        </option>
-       </select>
-      </label>
-      <label>
-       Logo size
-       <input id="logoSize" max="260" min="70" type="range" value="145">
-      </label>
-      <label>
-       Logo top margin
-       <input id="logoTop" max="85" min="8" type="range" value="18">
-      </label>
-      <button class="primary" id="build">
-       Build adaptive storyboard
-      </button>
-      <button class="primary" disabled id="render">
-       Render montage
-      </button>
-     </aside>
-     <section class="panel stage">
-      <div class="canvasWrap">
-       <canvas height="1350" id="canvas" width="1080">
-       </canvas>
-      </div>
-      <div class="tools">
-       <button id="left">
-        Move left
-       </button>
-       <button id="right">
-        Move right
-       </button>
-       <button id="replace">
-        Replace
-       </button>
-       <button id="fit">
-        Fit / fill
-       </button>
-       <button class="danger" id="remove">
-        Remove
-       </button>
-      </div>
-      <div class="hint">
-       Click a photo to select it. Drag to reposition the crop. Use the mouse wheel to zoom.
-      </div>
-      <div class="transport">
-       <button id="prev">
-        Previous
-       </button>
-       <span id="label">
-        Scene 0 of 0
-       </span>
-       <button id="play">
-        Play preview
-       </button>
-       <button id="next">
-        Next
-       </button>
-      </div>
-      <select hidden id="replaceSelect">
-      </select>
-      <button hidden id="applyReplace">
-       Apply replacement
-      </button>
-      <div class="progress">
-       <div class="bar" id="bar">
-       </div>
-      </div>
-      <div class="status" id="status">
-       Ready
-      </div>
-     </section>
-    </div>
-    <section class="panel story">
-     <h2>
-      Storyboard
-     </h2>
-     <div class="cards" id="cards">
-     </div>
-    </section>
-   </section>
-  </main>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">CXO <span>series</span></div>
+      <div class="tag">POST-EVENT MONTAGE STUDIO</div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <h1>Build, arrange and render the event story.</h1>
+        <p>Choose the full image folder, upload the real logo, build an adaptive storyboard, then drag photographs from the right-hand library directly into any frame.</p>
+      </section>
+
+      <section class="uploads">
+        <article class="panel upload-panel">
+          <h2>Event photographs</h2>
+          <p>The app will prefer files containing “(Custom)” and ignore matching originals.</p>
+          <input id="folderInput" type="file" accept="image/jpeg,image/png,image/webp" webkitdirectory multiple hidden>
+          <button id="chooseFolderButton" class="button primary">Select image folder</button>
+          <span id="folderName" class="file-name">No folder selected</span>
+        </article>
+
+        <article class="panel upload-panel">
+          <h2>Actual logo</h2>
+          <p>Transparent PNG, SVG or WebP is recommended.</p>
+          <input id="logoInput" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden>
+          <button id="chooseLogoButton" class="button">Upload logo</button>
+          <span id="logoName" class="file-name">No logo selected</span>
+        </article>
+      </section>
+
+      <section id="workspace" class="workspace" hidden>
+        <div class="stats">
+          <div class="stat"><span>Scanned</span><strong id="scannedCount">0</strong></div>
+          <div class="stat"><span>Accepted</span><strong id="acceptedCount">0</strong></div>
+          <div class="stat"><span>Originals ignored</span><strong id="ignoredCount">0</strong></div>
+          <div class="stat"><span>Portrait</span><strong id="portraitCount">0</strong></div>
+          <div class="stat"><span>Landscape</span><strong id="landscapeCount">0</strong></div>
+          <div class="stat"><span>Scenes</span><strong id="sceneCount">0</strong></div>
+        </div>
+
+        <div class="studio-grid">
+          <aside class="panel settings">
+            <h2>Video settings</h2>
+
+            <label class="control">Duration
+              <select id="durationSelect">
+                <option value="60">60 seconds</option>
+                <option value="90" selected>90 seconds</option>
+                <option value="120">120 seconds</option>
+              </select>
+            </label>
+
+            <label class="control">Photo order
+              <select id="orderSelect">
+                <option value="modified">Date modified</option>
+                <option value="filename">Filename</option>
+                <option value="random">Random</option>
+              </select>
+            </label>
+
+            <label class="control">Motion style
+              <select id="motionSelect">
+                <option value="elegant">Elegant rise</option>
+                <option value="dynamic" selected>Dynamic slide</option>
+                <option value="energy">High energy</option>
+                <option value="cinematic">Cinematic push</option>
+              </select>
+            </label>
+
+            <label class="control">Selected scene layout
+              <select id="layoutSelect"></select>
+            </label>
+
+            <label class="control">Logo position
+              <select id="logoPositionSelect">
+                <option value="top-center" selected>Top centre</option>
+                <option value="top-left">Top left</option>
+                <option value="top-right">Top right</option>
+              </select>
+            </label>
+
+            <label class="control">Logo size
+              <input id="logoSizeInput" type="range" min="70" max="260" value="140">
+            </label>
+
+            <label class="control">Logo top margin
+              <input id="logoTopInput" type="range" min="6" max="80" value="15">
+            </label>
+
+            <label class="check-row">
+              <input id="customOnlyInput" type="checkbox" checked>
+              Use Custom copies only
+            </label>
+
+            <button id="buildButton" class="button primary">Build adaptive storyboard</button>
+            <button id="renderButton" class="button primary" disabled>Render montage</button>
+          </aside>
+
+          <section class="panel preview-panel">
+            <div id="canvasFrame" class="canvas-frame">
+              <canvas id="videoCanvas" width="1080" height="1350"></canvas>
+            </div>
+
+            <div class="toolbar">
+              <button id="moveLeftButton" class="button" disabled>Move left</button>
+              <button id="moveRightButton" class="button" disabled>Move right</button>
+              <button id="fitButton" class="button" disabled>Fit / fill</button>
+              <button id="removeButton" class="button danger" disabled>Remove</button>
+            </div>
+
+            <div class="hint">Click a frame to select it. Drag inside the frame to reposition the crop. Use the mouse wheel to zoom. Drag a photo from the right into a frame to replace it.</div>
+
+            <div class="transport">
+              <button id="previousButton" class="button">Previous</button>
+              <strong id="sceneLabel">Scene 0 of 0</strong>
+              <button id="previewButton" class="button">Play preview</button>
+              <button id="nextButton" class="button">Next</button>
+            </div>
+
+            <div class="scene-actions">
+              <button id="shuffleButton" class="button">Shuffle scene</button>
+              <button id="duplicateButton" class="button">Duplicate scene</button>
+              <button id="sceneEarlierButton" class="button">Scene earlier</button>
+              <button id="sceneLaterButton" class="button">Scene later</button>
+              <button id="deleteSceneButton" class="button danger">Delete scene</button>
+            </div>
+
+            <div class="progress"><div id="progressBar" class="progress-bar"></div></div>
+            <div id="statusText" class="status">Select an image folder to begin.</div>
+          </section>
+
+          <aside class="panel library-panel">
+            <div class="library-head">
+              <div><h2>Image library</h2><small>Drag an image into the canvas</small></div>
+              <small id="libraryCount">0 images</small>
+            </div>
+            <input id="librarySearch" class="library-search" type="search" placeholder="Search filename">
+            <div id="photoLibrary" class="photo-library"></div>
+          </aside>
+        </div>
+
+        <section class="panel storyboard">
+          <div class="storyboard-head">
+            <h2>Storyboard</h2>
+            <span class="hint">Select a card to edit that scene.</span>
+          </div>
+          <div id="sceneList" class="scene-list"></div>
+        </section>
+      </section>
+    </main>
+  </div>
+
   <script>
-   const $ = s => document.querySelector(s),
-  canvas = $('#canvas'),
-  ctx = canvas.getContext('2d');
-let photos = [],
-  logo = null,
-  scenes = [],
-  si = 0,
-  selected = -1,
-  drag = false,
-  last = null,
-  playing = false;
-const isCustom = f => /\(custom\)/i.test(f.name);
-const load = f => new Promise((r, j) => {
-  let u = URL.createObjectURL(f),
-    i = new Image;
-  i.onload = () => r({
-    img: i,
-    url: u,
-    file: f,
-    name: f.name,
-    ratio: i.width / i.height,
-    type: i.width / i.height > 1.16 ? 'landscape' : i.width / i.height < .82 ? 'portrait' :
-      'square',
-    fx: .5,
-    fy: .5,
-    zoom: 1,
-    fit: 'fill'
-  });
-  i.onerror = j;
-  i.src = u
-});
-$('#pick').onclick = () => $('#folder').click();
-$('#pickLogo').onclick = () => $('#logoInput').click();
-$('#folder').onchange = async e => {
-  let all = [...e.target.files].filter(f => f.type.startsWith('image/')),
-    chosen = all.filter(isCustom);
-  $('#folderName').textContent = e.target.files[0]?.webkitRelativePath.split('/')[0] ||
-  'Folder';
-  $('#scanned').textContent = all.length;
-  photos = [];
-  for (let n = 0; n < chosen.length; n++) {
-    photos.push(await load(chosen[n]));
-    $('#status').textContent = `Reading ${n+1} of ${chosen.length}`
-  }
-  $('#used').textContent = photos.length;
-  $('#portraits').textContent = photos.filter(x => x.type === 'portrait').length;
-  $('#landscapes').textContent = photos.filter(x => x.type === 'landscape').length;
-  $('#app').hidden = false;
-  $('#status').textContent = 'Ready to build storyboard'
-};
-$('#logoInput').onchange = async e => {
-  logo = await load(e.target.files[0]);
-  $('#logoName').textContent = e.target.files[0].name;
-  draw()
-};
-const specs = {
-  hero: ['landscape'],
-  mixed: ['landscape', 'portrait', 'portrait'],
-  trio: ['portrait', 'portrait', 'portrait'],
-  quad: ['landscape', 'landscape', 'landscape', 'landscape'],
-  feature5: ['landscape', 'portrait', 'portrait', 'landscape', 'landscape'],
-  cinema5: ['landscape', 'portrait', 'portrait', 'portrait', 'portrait'],
-  grid6: ['landscape', 'landscape', 'landscape', 'landscape', 'landscape', 'landscape'],
-  mosaic7: ['landscape', 'portrait', 'portrait', 'landscape', 'landscape', 'square', 'square'],
-  rows3: ['landscape', 'landscape', 'landscape'],
-  filmstrip: ['portrait', 'portrait', 'portrait', 'portrait', 'portrait']
-};
+    "use strict";
 
-function rects(k) {
-  let M = 38,
-    T = 112,
-    W = 1004,
-    H = 1200,
-    G = 16;
-  return {
-    hero: [
-      [M, T, W, H]
-    ],
-    mixed: [
-      [M, T, 646, H],
-      [M + 662, T, 342, (H - G) / 2],
-      [M + 662, T + (H + G) / 2, 342, (H - G) / 2]
-    ],
-    trio: [
-      [M, T, (W - 2 * G) / 3, H],
-      [M + (W - 2 * G) / 3 + G, T, (W - 2 * G) / 3, H],
-      [M + 2 * ((W - 2 * G) / 3 + G), T, (W - 2 * G) / 3, H]
-    ],
-    quad: [
-      [M, T, (W - G) / 2, (H - G) / 2],
-      [M + (W + G) / 2, T, (W - G) / 2, (H - G) / 2],
-      [M, T + (H + G) / 2, (W - G) / 2, (H - G) / 2],
-      [M + (W + G) / 2, T + (H + G) / 2, (W - G) / 2, (H - G) / 2]
-    ],
-    feature5: [
-      [M, T, 620, 750],
-      [M + 636, T, 368, 360],
-      [M + 636, T + 376, 368, 374],
-      [M, T + 766, 302, H - 766],
-      [M + 318, T + 766, 302, H - 766]
-    ],
-    cinema5: [
-      [M, T, W, 585],
-      [M, T + 601, (W - 3 * G) / 4, H - 601],
-      [M + (W - 3 * G) / 4 + G, T + 601, (W - 3 * G) / 4, H - 601],
-      [M + 2 * ((W - 3 * G) / 4 + G), T + 601, (W - 3 * G) / 4, H - 601],
-      [M + 3 * ((W - 3 * G) / 4 + G), T + 601, (W - 3 * G) / 4, H - 601]
-    ],
-    grid6: [
-      [M, T, (W - G) / 2, (H - 2 * G) / 3],
-      [M + (W + G) / 2, T, (W - G) / 2, (H - 2 * G) / 3],
-      [M, T + (H - 2 * G) / 3 + G, (W - G) / 2, (H - 2 * G) / 3],
-      [M + (W + G) / 2, T + (H - 2 * G) / 3 + G, (W - G) / 2, (H - 2 * G) / 3],
-      [M, T + 2 * ((H - 2 * G) / 3 + G), (W - G) / 2, (H - 2 * G) / 3],
-      [M + (W + G) / 2, T + 2 * ((H - 2 * G) / 3 + G), (W - G) / 2, (H - 2 * G) / 3]
-    ],
-    mosaic7: [
-      [M, T, 505, 720],
-      [M + 521, T, 483, 344],
-      [M + 521, T + 360, 233, 360],
-      [M + 770, T + 360, 234, 360],
-      [M, T + 736, 315, H - 736],
-      [M + 331, T + 736, 329, H - 736],
-      [M + 676, T + 736, 328, H - 736]
-    ],
-    rows3: [
-      [M, T, W, (H - 2 * G) / 3],
-      [M, T + (H - 2 * G) / 3 + G, W, (H - 2 * G) / 3],
-      [M, T + 2 * ((H - 2 * G) / 3 + G), W, (H - 2 * G) / 3]
-    ],
-    filmstrip: [
-      [M, T, 300, H],
-      [M + 316, T, 300, H],
-      [M + 632, T, 300, H],
-      [M + 948, T, 300, H],
-      [M + 1264, T, 300, H]
-    ]
-  } [k]
-}
+    const CONFIG = Object.freeze({
+      width: 1080,
+      height: 1350,
+      framesPerSecond: 30,
+      videoBitrate: 10_000_000,
+      imageArea: Object.freeze({ x: 38, y: 112, width: 1004, height: 1200, gap: 16 })
+    });
 
-function choose(pool, w) {
-  let i = pool.findIndex(p => p.type === w);
-  if (i < 0) i = pool.findIndex(p => w === 'square' ? p.type === 'landscape' : true);
-  if (i < 0) return null;
-  return pool.splice(i, 1)[0]
-}
-$('#build').onclick = () => {
-  let pool = [...photos],
-    cycle = ['feature5', 'mixed', 'quad', 'cinema5', 'trio', 'mosaic7', 'rows3', 'grid6',
-      'filmstrip', 'hero'
-    ],
-    n = 0;
-  scenes = [];
-  while (pool.length) {
-    let k = $('#layout').value === 'auto' ? cycle[n++ % cycle.length] : $('#layout').value,
-      need = specs[k];
-    if (pool.length < need.length) {
-      k = pool.length === 1 ? 'hero' : pool.length === 2 ? 'mixed' : pool.length === 3 ? 'trio' :
-        pool.length === 4 ? 'quad' : pool.length === 5 ? 'cinema5' : pool.length === 6 ? 'grid6' :
-        'mosaic7';
-      need = specs[k].slice(0, pool.length)
-    }
-    scenes.push({
-      layout: k,
-      items: need.map(x => choose(pool, x)).filter(Boolean)
-    })
-  }
-  si = 0;
-  selected = -1;
-  $('#sceneCount').textContent = scenes.length;
-  $('#render').disabled = false;
-  cards();
-  draw();
-  label()
-};
+    const LAYOUTS = Object.freeze({
+      hero: { label: "Hero", needs: ["landscape"] },
+      mixed: { label: "Mixed feature", needs: ["landscape", "portrait", "portrait"] },
+      trio: { label: "Portrait trio", needs: ["portrait", "portrait", "portrait"] },
+      quad: { label: "Balanced four", needs: ["landscape", "landscape", "landscape", "landscape"] },
+      featureFive: { label: "Feature plus four", needs: ["landscape", "portrait", "portrait", "landscape", "landscape"] },
+      cinemaFive: { label: "Cinematic five", needs: ["landscape", "portrait", "portrait", "portrait", "portrait"] },
+      gridSix: { label: "Six-image grid", needs: ["landscape", "landscape", "landscape", "landscape", "landscape", "landscape"] },
+      mosaicSeven: { label: "Seven-image mosaic", needs: ["landscape", "portrait", "portrait", "landscape", "landscape", "square", "square"] },
+      rowsThree: { label: "Three wide rows", needs: ["landscape", "landscape", "landscape"] },
+      filmstrip: { label: "Moving filmstrip", needs: ["portrait", "portrait", "portrait", "portrait", "portrait"] }
+    });
 
-function bg() {
-  let g = ctx.createLinearGradient(0, 0, 1080, 1350);
-  g.addColorStop(0, '#132949');
-  g.addColorStop(1, '#071327');
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, 1080, 1350);
-  ctx.strokeStyle = '#31859d44';
-  for (let i = 0; i < 10; i++) {
-    ctx.beginPath();
-    ctx.moveTo(i * 150 - 80, i * 130);
-    ctx.lineTo(i * 150 + 250, i * 130 + 60);
-    ctx.stroke()
-  }
-}
+    const AUTO_LAYOUT_SEQUENCE = [
+      "featureFive", "mixed", "quad", "cinemaFive", "trio",
+      "mosaicSeven", "rowsThree", "gridSix", "filmstrip", "hero"
+    ];
 
-function crop(p, r, t, i) {
-  let [x, y, w, h] = r, m = $('#motion').value, mx = 0, my = 0;
-  if (m === 'elegant') my = (1 - Math.min(1, t * 2)) * 25;
-  if (m === 'dynamic') mx = (1 - Math.min(1, t * 3)) * (i % 2 ? -45 : 45);
-  if (m === 'energy') {
-    mx = (1 - Math.min(1, t * 5)) * (i % 2 ? -90 : 90);
-    my = (1 - Math.min(1, t * 5)) * 35
-  }
-  if (m === 'cinematic') my = (1 - Math.min(1, t * 1.5)) * 48;
-  ctx.save();
-  ctx.translate(mx, my);
-  ctx.beginPath();
-  ctx.roundRect(x, y, w, h, 20);
-  ctx.clip();
-  let sc = (p.fit === 'fit' ? Math.min(w / p.img.width, h / p.img.height) : Math.max(w / p.img
-      .width, h / p.img.height)) * (p.zoom || 1) * (1 + .035 * t),
-    nw = p.img.width * sc,
-    nh = p.img.height * sc;
-  if (p.fit === 'fit') {
-    ctx.filter = 'blur(22px)';
-    let bs = Math.max(w / p.img.width, h / p.img.height) * 1.1;
-    ctx.globalAlpha = .5;
-    ctx.drawImage(p.img, x + (w - p.img.width * bs) / 2, y + (h - p.img.height * bs) / 2, p.img
-      .width * bs, p.img.height * bs);
-    ctx.filter = 'none';
-    ctx.globalAlpha = 1
-  }
-  ctx.drawImage(p.img, x + (w - nw) * p.fx, y + (h - nh) * p.fy, nw, nh);
-  ctx.restore();
-  if (i === selected && !playing) {
-    ctx.strokeStyle = '#70c6dc';
-    ctx.lineWidth = 8;
-    ctx.beginPath();
-    ctx.roundRect(x, y, w, h, 20);
-    ctx.stroke()
-  }
-}
-
-function logoDraw() {
-  if (!logo) return;
-  let w = +$('#logoSize').value,
-    h = w / logo.img.width * logo.img.height,
-    pos = $('#logoPos').value,
-    top = +$('#logoTop').value,
-    x = 42;
-  if (pos === 'tc') x = (1080 - w) / 2;
-  if (pos === 'tr') x = 1080 - w - 42;
-  ctx.drawImage(logo.img, x, top, w, h)
-}
-
-function draw(t = .6) {
-  if (!scenes.length) return;
-  bg();
-  let s = scenes[si],
-    rs = rects(s.layout);
-  if (s.layout === 'filmstrip') rs = rs.map(r => [r[0] - 520 * t, r[1], r[2], r[3]]);
-  s.items.forEach((p, i) => rs[i] && crop(p, rs[i], t, i));
-  logoDraw()
-}
-
-function cards() {
-  let b = $('#cards');
-  b.innerHTML = '';
-  scenes.forEach((s, i) => {
-    let x = document.createElement('button');
-    x.className = 'card ' + (i === si ? 'active' : '');
-    x.innerHTML = `Scene ${i+1}<br><small>${s.layout} · ${s.items.length}</small>`;
-    x.onclick = () => {
-      si = i;
-      selected = -1;
-      cards();
-      draw();
-      label()
+    const state = {
+      sourceFiles: [],
+      photos: [],
+      logo: null,
+      scenes: [],
+      currentSceneIndex: 0,
+      selectedSlotIndex: -1,
+      selectedLibraryPhotoId: null,
+      isDraggingCrop: false,
+      lastPointer: null,
+      isPreviewing: false,
+      objectUrls: new Set()
     };
-    b.append(x)
-  })
-}
 
-function label() {
-  $('#label').textContent = `Scene ${si+1} of ${scenes.length}`
-}
+    const elements = {};
 
-function point(e) {
-  let b = canvas.getBoundingClientRect(),
-    x = (e.clientX - b.left) * 1080 / b.width,
-    y = (e.clientY - b.top) * 1350 / b.height;
-  return rects(scenes[si].layout).findIndex(r => x >= r[0] && x <= r[0] + r[2] && y >= r[1] && y <=
-    r[1] + r[3])
-}
-canvas.onpointerdown = e => {
-  selected = point(e);
-  if (selected >= scenes[si].items.length) selected = -1;
-  drag = selected >= 0;
-  last = {
-    x: e.clientX,
-    y: e.clientY
-  };
-  draw()
-};
-canvas.onpointermove = e => {
-  if (!drag) return;
-  let p = scenes[si].items[selected],
-    b = canvas.getBoundingClientRect();
-  p.fx = Math.max(0, Math.min(1, p.fx - (e.clientX - last.x) / b.width * 1.8));
-  p.fy = Math.max(0, Math.min(1, p.fy - (e.clientY - last.y) / b.height * 1.8));
-  last = {
-    x: e.clientX,
-    y: e.clientY
-  };
-  draw()
-};
-canvas.onpointerup = () => drag = false;
-canvas.onwheel = e => {
-  if (selected < 0) return;
-  e.preventDefault();
-  let p = scenes[si].items[selected];
-  p.zoom = Math.max(.85, Math.min(1.7, p.zoom + (e.deltaY < 0 ? .05 : -.05)));
-  draw()
-};
+    document.addEventListener("DOMContentLoaded", initialiseApplication);
 
-function swap(d) {
-  if (selected < 0) return;
-  let j = selected + d,
-    a = scenes[si].items;
-  if (j < 0 || j >= a.length) return;
-  [a[selected], a[j]] = [a[j], a[selected]];
-  selected = j;
-  draw()
-}
-$('#left').onclick = () => swap(-1);
-$('#right').onclick = () => swap(1);
-$('#fit').onclick = () => {
-  if (selected < 0) return;
-  let p = scenes[si].items[selected];
-  p.fit = p.fit === 'fill' ? 'fit' : 'fill';
-  draw()
-};
-$('#remove').onclick = () => {
-  if (selected < 0) return;
-  scenes[si].items.splice(selected, 1);
-  selected = -1;
-  draw();
-  cards()
-};
-$('#replace').onclick = () => {
-  if (selected < 0) return;
-  let q = $('#replaceSelect');
-  q.innerHTML = '';
-  photos.forEach((p, i) => q.add(new Option(p.name, i)));
-  q.hidden = false;
-  $('#applyReplace').hidden = false
-};
-$('#applyReplace').onclick = () => {
-  scenes[si].items[selected] = photos[+$('#replaceSelect').value];
-  $('#replaceSelect').hidden = true;
-  $('#applyReplace').hidden = true;
-  draw()
-};
-$('#prev').onclick = () => {
-  si = (si - 1 + scenes.length) % scenes.length;
-  selected = -1;
-  cards();
-  draw();
-  label()
-};
-$('#next').onclick = () => {
-  si = (si + 1) % scenes.length;
-  selected = -1;
-  cards();
-  draw();
-  label()
-};
-$('#play').onclick = () => {
-  if (playing || !scenes.length) return;
-  playing = true;
-  let st = performance.now(),
-    len = Math.min(8, scenes.length),
-    per = 2;
-
-  function f(now) {
-    let sec = (now - st) / 1000;
-    si = Math.min(len - 1, Math.floor(sec / per));
-    draw((sec % per) / per);
-    label();
-    if (sec < len * per) requestAnimationFrame(f);
-    else {
-      playing = false;
-      si = 0;
-      cards();
-      draw();
-      label()
+    function initialiseApplication() {
+      cacheElements();
+      populateLayoutSelect();
+      bindEvents();
+      drawEmptyCanvas("Select an image folder to begin");
+      updateSelectionControls();
     }
-  }
-  requestAnimationFrame(f)
-};
-['logoSize', 'logoTop'].forEach(id => $('#' + id).oninput = () => draw());
-$('#logoPos').onchange = () => draw();
-$('#layout').onchange = () => {
-  if (scenes.length && $('#layout').value !== 'auto') {
-    scenes[si].layout = $('#layout').value;
-    draw();
-    cards()
-  }
-};
-$('#render').onclick = () => {
-  let dur = +$('#duration').value,
-    per = dur / scenes.length,
-    mime = ['video/mp4;codecs=avc1.42E01E', 'video/webm;codecs=vp9', 'video/webm'].find(
-      MediaRecorder.isTypeSupported),
-    rec = new MediaRecorder(canvas.captureStream(30), {
-      mimeType: mime,
-      videoBitsPerSecond: 10000000
-    }),
-    chunks = [];
-  rec.ondataavailable = e => e.data.size && chunks.push(e.data);
-  rec.onstop = () => {
-    let ext = mime.includes('mp4') ? 'mp4' : 'webm',
-      a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob(chunks, {
-      type: mime
-    }));
-    a.download = `cxo-adaptive-montage.${ext}`;
-    a.click();
-    $('#status').textContent = 'Complete'
-  };
-  rec.start(1000);
-  let st = performance.now();
 
-  function f(now) {
-    let sec = (now - st) / 1000;
-    si = Math.min(scenes.length - 1, Math.floor(sec / per));
-    draw((sec % per) / per);
-    $('#bar').style.width = Math.min(100, sec / dur * 100) + '%';
-    $('#status').textContent = `Rendering ${Math.round(Math.min(1,sec/dur)*100)}%`;
-    sec < dur ? requestAnimationFrame(f) : rec.stop()
-  }
-  requestAnimationFrame(f)
-};
+    function cacheElements() {
+      const ids = [
+        "folderInput", "logoInput", "chooseFolderButton", "chooseLogoButton", "folderName", "logoName",
+        "workspace", "scannedCount", "acceptedCount", "ignoredCount", "portraitCount", "landscapeCount",
+        "sceneCount", "durationSelect", "orderSelect", "motionSelect", "layoutSelect", "logoPositionSelect",
+        "logoSizeInput", "logoTopInput", "customOnlyInput", "buildButton", "renderButton", "videoCanvas",
+        "canvasFrame", "moveLeftButton", "moveRightButton", "fitButton", "removeButton", "previousButton",
+        "previewButton", "nextButton", "sceneLabel", "shuffleButton", "duplicateButton", "sceneEarlierButton",
+        "sceneLaterButton", "deleteSceneButton", "progressBar", "statusText", "libraryCount", "librarySearch",
+        "photoLibrary", "sceneList"
+      ];
+
+      ids.forEach((id) => { elements[id] = document.getElementById(id); });
+      elements.context = elements.videoCanvas.getContext("2d", { alpha: false });
+    }
+
+    function populateLayoutSelect() {
+      Object.entries(LAYOUTS).forEach(([key, layout]) => {
+        elements.layoutSelect.add(new Option(layout.label, key));
+      });
+    }
+
+    function bindEvents() {
+      elements.chooseFolderButton.addEventListener("click", () => elements.folderInput.click());
+      elements.chooseLogoButton.addEventListener("click", () => elements.logoInput.click());
+      elements.folderInput.addEventListener("change", handleFolderSelection);
+      elements.logoInput.addEventListener("change", handleLogoSelection);
+      elements.buildButton.addEventListener("click", buildStoryboard);
+      elements.renderButton.addEventListener("click", renderVideo);
+      elements.previousButton.addEventListener("click", () => selectScene(state.currentSceneIndex - 1));
+      elements.nextButton.addEventListener("click", () => selectScene(state.currentSceneIndex + 1));
+      elements.previewButton.addEventListener("click", playPreview);
+      elements.layoutSelect.addEventListener("change", changeCurrentSceneLayout);
+      elements.logoPositionSelect.addEventListener("change", drawCurrentScene);
+      elements.logoSizeInput.addEventListener("input", drawCurrentScene);
+      elements.logoTopInput.addEventListener("input", drawCurrentScene);
+      elements.motionSelect.addEventListener("change", drawCurrentScene);
+      elements.customOnlyInput.addEventListener("change", processSourceFiles);
+      elements.orderSelect.addEventListener("change", () => { if (state.scenes.length) buildStoryboard(); });
+      elements.librarySearch.addEventListener("input", renderPhotoLibrary);
+
+      elements.moveLeftButton.addEventListener("click", () => moveSelectedPhoto(-1));
+      elements.moveRightButton.addEventListener("click", () => moveSelectedPhoto(1));
+      elements.fitButton.addEventListener("click", toggleSelectedPhotoFit);
+      elements.removeButton.addEventListener("click", removeSelectedPhoto);
+      elements.shuffleButton.addEventListener("click", shuffleCurrentScene);
+      elements.duplicateButton.addEventListener("click", duplicateCurrentScene);
+      elements.sceneEarlierButton.addEventListener("click", () => moveCurrentScene(-1));
+      elements.sceneLaterButton.addEventListener("click", () => moveCurrentScene(1));
+      elements.deleteSceneButton.addEventListener("click", deleteCurrentScene);
+
+      elements.videoCanvas.addEventListener("pointerdown", handleCanvasPointerDown);
+      elements.videoCanvas.addEventListener("pointermove", handleCanvasPointerMove);
+      elements.videoCanvas.addEventListener("pointerup", stopCropDrag);
+      elements.videoCanvas.addEventListener("pointercancel", stopCropDrag);
+      elements.videoCanvas.addEventListener("wheel", handleCanvasWheel, { passive: false });
+      elements.videoCanvas.addEventListener("dragover", handleCanvasDragOver);
+      elements.videoCanvas.addEventListener("dragleave", () => elements.canvasFrame.classList.remove("drop-active"));
+      elements.videoCanvas.addEventListener("drop", handleCanvasDrop);
+    }
+
+    async function handleFolderSelection(event) {
+      const files = Array.from(event.target.files || []).filter(isSupportedImageFile);
+      state.sourceFiles = files;
+      elements.folderName.textContent = files[0]?.webkitRelativePath?.split("/")[0] || "Selected folder";
+      elements.scannedCount.textContent = String(files.length);
+      elements.workspace.hidden = false;
+      await processSourceFiles();
+    }
+
+    async function processSourceFiles() {
+      if (!state.sourceFiles.length) return;
+
+      setStatus("Reading image dimensions...");
+      setProgress(0);
+      releasePhotoUrls();
+
+      const customFiles = state.sourceFiles.filter((file) => /\(custom\)/i.test(file.name));
+      const customBaseNames = new Set(customFiles.map((file) => canonicalFileName(file.name)));
+      const unmatchedOriginals = state.sourceFiles.filter(
+        (file) => !/\(custom\)/i.test(file.name) && !customBaseNames.has(canonicalFileName(file.name))
+      );
+
+      const acceptedFiles = elements.customOnlyInput.checked
+        ? customFiles
+        : [...customFiles, ...unmatchedOriginals];
+
+      state.photos = [];
+      for (let index = 0; index < acceptedFiles.length; index += 1) {
+        try {
+          const photo = await createPhotoRecord(acceptedFiles[index], index);
+          state.photos.push(photo);
+        } catch (error) {
+          console.warn("Skipped unreadable image:", acceptedFiles[index].name, error);
+        }
+        setProgress((index + 1) / Math.max(1, acceptedFiles.length));
+      }
+
+      elements.acceptedCount.textContent = String(state.photos.length);
+      elements.ignoredCount.textContent = String(state.sourceFiles.length - state.photos.length);
+      elements.portraitCount.textContent = String(state.photos.filter((photo) => photo.orientation === "portrait").length);
+      elements.landscapeCount.textContent = String(state.photos.filter((photo) => photo.orientation === "landscape").length);
+      elements.libraryCount.textContent = `${state.photos.length} images`;
+
+      state.scenes = [];
+      state.currentSceneIndex = 0;
+      state.selectedSlotIndex = -1;
+      renderPhotoLibrary();
+      renderStoryboard();
+      drawEmptyCanvas("Build the adaptive storyboard");
+      setProgress(0);
+      setStatus(`${state.photos.length} images ready. Build the storyboard.`);
+      elements.renderButton.disabled = true;
+      updateSelectionControls();
+    }
+
+    async function handleLogoSelection(event) {
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      try {
+        if (state.logo?.url) releaseObjectUrl(state.logo.url);
+        state.logo = await createImageAsset(file);
+        elements.logoName.textContent = file.name;
+        drawCurrentScene();
+      } catch (error) {
+        setStatus(`Logo could not be loaded: ${error.message}`);
+      }
+    }
+
+    function isSupportedImageFile(file) {
+      return ["image/jpeg", "image/png", "image/webp"].includes(file.type);
+    }
+
+    function canonicalFileName(fileName) {
+      return fileName.replace(/\s*\(custom\)/i, "").replace(/\.[^.]+$/, "").toLowerCase();
+    }
+
+    async function createPhotoRecord(file, index) {
+      const asset = await createImageAsset(file);
+      const ratio = asset.image.naturalWidth / asset.image.naturalHeight;
+      const orientation = ratio > 1.16 ? "landscape" : ratio < 0.82 ? "portrait" : "square";
+
+      return {
+        id: `${index}-${file.name}-${file.lastModified}`,
+        file,
+        name: file.name,
+        image: asset.image,
+        url: asset.url,
+        orientation,
+        focalX: 0.5,
+        focalY: 0.5,
+        zoom: 1,
+        fitMode: "fill"
+      };
+    }
+
+    function createImageAsset(file) {
+      return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(file);
+        state.objectUrls.add(url);
+        const image = new Image();
+        image.onload = () => resolve({ image, url });
+        image.onerror = () => {
+          releaseObjectUrl(url);
+          reject(new Error(`Unable to decode ${file.name}`));
+        };
+        image.src = url;
+      });
+    }
+
+    function releaseObjectUrl(url) {
+      if (!url) return;
+      URL.revokeObjectURL(url);
+      state.objectUrls.delete(url);
+    }
+
+    function releasePhotoUrls() {
+      state.photos.forEach((photo) => releaseObjectUrl(photo.url));
+      state.photos = [];
+    }
+
+    function buildStoryboard() {
+      if (!state.photos.length) {
+        setStatus("No accepted images are available.");
+        return;
+      }
+
+      const orderedPhotos = getOrderedPhotos();
+      const pool = [...orderedPhotos];
+      const scenes = [];
+      let sequenceIndex = 0;
+
+      while (pool.length > 0) {
+        let layoutKey = AUTO_LAYOUT_SEQUENCE[sequenceIndex % AUTO_LAYOUT_SEQUENCE.length];
+        sequenceIndex += 1;
+
+        if (pool.length < LAYOUTS[layoutKey].needs.length) {
+          layoutKey = layoutForRemainingCount(pool.length);
+        }
+
+        const requiredOrientations = LAYOUTS[layoutKey].needs.slice(0, pool.length);
+        const items = requiredOrientations
+          .map((orientation) => takeBestPhoto(pool, orientation))
+          .filter(Boolean)
+          .map(clonePlacement);
+
+        scenes.push({ id: crypto.randomUUID(), layoutKey, items });
+      }
+
+      state.scenes = scenes;
+      state.currentSceneIndex = 0;
+      state.selectedSlotIndex = -1;
+      elements.sceneCount.textContent = String(scenes.length);
+      elements.renderButton.disabled = scenes.length === 0;
+      renderStoryboard();
+      renderPhotoLibrary();
+      selectScene(0);
+      setStatus(`${scenes.length} adaptive scenes created.`);
+    }
+
+    function getOrderedPhotos() {
+      const photos = [...state.photos];
+      const order = elements.orderSelect.value;
+
+      if (order === "filename") {
+        photos.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }));
+      } else if (order === "modified") {
+        photos.sort((a, b) => a.file.lastModified - b.file.lastModified || a.name.localeCompare(b.name));
+      } else {
+        shuffleInPlace(photos);
+      }
+
+      return photos;
+    }
+
+    function layoutForRemainingCount(count) {
+      if (count <= 1) return "hero";
+      if (count === 2) return "mixed";
+      if (count === 3) return "trio";
+      if (count === 4) return "quad";
+      if (count === 5) return "cinemaFive";
+      if (count === 6) return "gridSix";
+      return "mosaicSeven";
+    }
+
+    function takeBestPhoto(pool, requiredOrientation) {
+      let index = pool.findIndex((photo) => photo.orientation === requiredOrientation);
+      if (index < 0 && requiredOrientation === "square") {
+        index = pool.findIndex((photo) => photo.orientation === "landscape");
+      }
+      if (index < 0) index = 0;
+      return pool.splice(index, 1)[0] || null;
+    }
+
+    function clonePlacement(photo) {
+      return {
+        photoId: photo.id,
+        focalX: photo.focalX,
+        focalY: photo.focalY,
+        zoom: photo.zoom,
+        fitMode: photo.fitMode
+      };
+    }
+
+    function cloneScene(scene) {
+      return {
+        id: crypto.randomUUID(),
+        layoutKey: scene.layoutKey,
+        items: scene.items.map((item) => ({ ...item }))
+      };
+    }
+
+    function getCurrentScene() {
+      return state.scenes[state.currentSceneIndex] || null;
+    }
+
+    function getPhoto(photoId) {
+      return state.photos.find((photo) => photo.id === photoId) || null;
+    }
+
+    function selectScene(index) {
+      if (!state.scenes.length) return;
+      state.currentSceneIndex = (index + state.scenes.length) % state.scenes.length;
+      state.selectedSlotIndex = -1;
+      const scene = getCurrentScene();
+      elements.layoutSelect.value = scene.layoutKey;
+      updateSceneLabel();
+      updateSelectionControls();
+      renderStoryboard();
+      drawCurrentScene();
+    }
+
+    function changeCurrentSceneLayout() {
+      const scene = getCurrentScene();
+      if (!scene) return;
+
+      scene.layoutKey = elements.layoutSelect.value;
+      const maximumSlots = LAYOUTS[scene.layoutKey].needs.length;
+      if (scene.items.length > maximumSlots) {
+        scene.items = scene.items.slice(0, maximumSlots);
+      }
+      state.selectedSlotIndex = -1;
+      renderStoryboard();
+      drawCurrentScene();
+      updateSelectionControls();
+    }
+
+    function renderStoryboard() {
+      elements.sceneList.replaceChildren();
+
+      state.scenes.forEach((scene, index) => {
+        const button = document.createElement("button");
+        button.className = `scene-card${index === state.currentSceneIndex ? " active" : ""}`;
+        button.type = "button";
+        button.innerHTML = `Scene ${index + 1}<span>${LAYOUTS[scene.layoutKey].label} · ${scene.items.length} images</span>`;
+        button.addEventListener("click", () => selectScene(index));
+        elements.sceneList.append(button);
+      });
+    }
+
+    function renderPhotoLibrary() {
+      const search = elements.librarySearch.value.trim().toLowerCase();
+      const usedPhotoIds = new Set(state.scenes.flatMap((scene) => scene.items.map((item) => item.photoId)));
+      const filteredPhotos = state.photos.filter((photo) => photo.name.toLowerCase().includes(search));
+
+      elements.photoLibrary.replaceChildren();
+      filteredPhotos.forEach((photo) => {
+        const card = document.createElement("button");
+        card.type = "button";
+        card.className = "photo-card";
+        if (usedPhotoIds.has(photo.id)) card.classList.add("used");
+        if (state.selectedLibraryPhotoId === photo.id) card.classList.add("selected");
+        card.draggable = true;
+        card.title = `${photo.name} · ${photo.orientation}`;
+
+        const image = document.createElement("img");
+        image.src = photo.url;
+        image.alt = "Event photograph thumbnail";
+        const caption = document.createElement("span");
+        caption.textContent = photo.name;
+        card.append(image, caption);
+
+        card.addEventListener("click", () => replaceSelectedSlot(photo.id));
+        card.addEventListener("dragstart", (event) => {
+          event.dataTransfer.effectAllowed = "copy";
+          event.dataTransfer.setData("text/plain", photo.id);
+          state.selectedLibraryPhotoId = photo.id;
+          renderPhotoLibrary();
+        });
+        elements.photoLibrary.append(card);
+      });
+    }
+
+    function replaceSelectedSlot(photoId) {
+      const scene = getCurrentScene();
+      if (!scene || state.selectedSlotIndex < 0) {
+        state.selectedLibraryPhotoId = photoId;
+        renderPhotoLibrary();
+        setStatus("Select a canvas frame, then click or drag an image from the library.");
+        return;
+      }
+
+      const existing = scene.items[state.selectedSlotIndex];
+      scene.items[state.selectedSlotIndex] = {
+        photoId,
+        focalX: existing?.focalX ?? 0.5,
+        focalY: existing?.focalY ?? 0.5,
+        zoom: 1,
+        fitMode: existing?.fitMode ?? "fill"
+      };
+      state.selectedLibraryPhotoId = photoId;
+      drawCurrentScene();
+      renderPhotoLibrary();
+      setStatus("Selected frame updated.");
+    }
+
+    function getLayoutRectangles(layoutKey, progress = 0) {
+      const { x: margin, y: top, width, height, gap } = CONFIG.imageArea;
+      const halfWidth = (width - gap) / 2;
+      const halfHeight = (height - gap) / 2;
+      const thirdHeight = (height - gap * 2) / 3;
+
+      const rectangles = {
+        hero: [[margin, top, width, height]],
+        mixed: [
+          [margin, top, 646, height],
+          [margin + 662, top, 342, halfHeight],
+          [margin + 662, top + halfHeight + gap, 342, halfHeight]
+        ],
+        trio: [
+          [margin, top, (width - gap * 2) / 3, height],
+          [margin + (width - gap * 2) / 3 + gap, top, (width - gap * 2) / 3, height],
+          [margin + 2 * ((width - gap * 2) / 3 + gap), top, (width - gap * 2) / 3, height]
+        ],
+        quad: [
+          [margin, top, halfWidth, halfHeight],
+          [margin + halfWidth + gap, top, halfWidth, halfHeight],
+          [margin, top + halfHeight + gap, halfWidth, halfHeight],
+          [margin + halfWidth + gap, top + halfHeight + gap, halfWidth, halfHeight]
+        ],
+        featureFive: [
+          [margin, top, 620, 750],
+          [margin + 636, top, 368, 360],
+          [margin + 636, top + 376, 368, 374],
+          [margin, top + 766, 302, height - 766],
+          [margin + 318, top + 766, 302, height - 766]
+        ],
+        cinemaFive: [
+          [margin, top, width, 585],
+          [margin, top + 601, (width - gap * 3) / 4, height - 601],
+          [margin + (width - gap * 3) / 4 + gap, top + 601, (width - gap * 3) / 4, height - 601],
+          [margin + 2 * ((width - gap * 3) / 4 + gap), top + 601, (width - gap * 3) / 4, height - 601],
+          [margin + 3 * ((width - gap * 3) / 4 + gap), top + 601, (width - gap * 3) / 4, height - 601]
+        ],
+        gridSix: [
+          [margin, top, halfWidth, thirdHeight],
+          [margin + halfWidth + gap, top, halfWidth, thirdHeight],
+          [margin, top + thirdHeight + gap, halfWidth, thirdHeight],
+          [margin + halfWidth + gap, top + thirdHeight + gap, halfWidth, thirdHeight],
+          [margin, top + 2 * (thirdHeight + gap), halfWidth, thirdHeight],
+          [margin + halfWidth + gap, top + 2 * (thirdHeight + gap), halfWidth, thirdHeight]
+        ],
+        mosaicSeven: [
+          [margin, top, 505, 720],
+          [margin + 521, top, 483, 344],
+          [margin + 521, top + 360, 233, 360],
+          [margin + 770, top + 360, 234, 360],
+          [margin, top + 736, 315, height - 736],
+          [margin + 331, top + 736, 329, height - 736],
+          [margin + 676, top + 736, 328, height - 736]
+        ],
+        rowsThree: [
+          [margin, top, width, thirdHeight],
+          [margin, top + thirdHeight + gap, width, thirdHeight],
+          [margin, top + 2 * (thirdHeight + gap), width, thirdHeight]
+        ],
+        filmstrip: [0, 1, 2, 3, 4].map((index) => [margin + index * 316 - progress * 520, top, 300, height])
+      };
+
+      return rectangles[layoutKey] || rectangles.hero;
+    }
+
+    function drawCurrentScene() {
+      const scene = getCurrentScene();
+      if (!scene || state.isPreviewing) return;
+      drawScene(scene, 0.65, true);
+    }
+
+    function drawScene(scene, progress, showSelection) {
+      drawBackground(progress);
+      const rectangles = getLayoutRectangles(scene.layoutKey, progress);
+
+      scene.items.forEach((placement, index) => {
+        const photo = getPhoto(placement.photoId);
+        const rectangle = rectangles[index];
+        if (!photo || !rectangle) return;
+        drawPhotoInFrame(photo, placement, rectangle, progress, index);
+        if (showSelection && index === state.selectedSlotIndex) drawSelection(rectangle);
+      });
+
+      drawLogo();
+    }
+
+    function drawBackground(progress) {
+      const context = elements.context;
+      const gradient = context.createLinearGradient(0, 0, CONFIG.width, CONFIG.height);
+      gradient.addColorStop(0, "#132949");
+      gradient.addColorStop(1, "#071327");
+      context.fillStyle = gradient;
+      context.fillRect(0, 0, CONFIG.width, CONFIG.height);
+
+      context.save();
+      context.globalAlpha = 0.22;
+      context.strokeStyle = "#31859d";
+      context.lineWidth = 2;
+      for (let index = 0; index < 11; index += 1) {
+        const startX = ((index * 145 + progress * 100) % 1200) - 100;
+        const startY = index * 120;
+        context.beginPath();
+        context.moveTo(startX, startY);
+        context.lineTo(startX + 300, startY + 65);
+        context.stroke();
+      }
+      context.restore();
+    }
+
+    function drawPhotoInFrame(photo, placement, rectangle, progress, index) {
+      const context = elements.context;
+      const [x, y, width, height] = rectangle;
+      const motion = getMotionOffset(progress, index);
+
+      context.save();
+      context.translate(motion.x, motion.y);
+      roundedRectPath(context, x, y, width, height, 20);
+      context.clip();
+
+      const imageWidth = photo.image.naturalWidth;
+      const imageHeight = photo.image.naturalHeight;
+      const baseScale = placement.fitMode === "fit"
+        ? Math.min(width / imageWidth, height / imageHeight)
+        : Math.max(width / imageWidth, height / imageHeight);
+      const cinematicZoom = 1 + progress * 0.035;
+      const scale = baseScale * placement.zoom * cinematicZoom;
+      const drawnWidth = imageWidth * scale;
+      const drawnHeight = imageHeight * scale;
+
+      if (placement.fitMode === "fit") {
+        const backdropScale = Math.max(width / imageWidth, height / imageHeight) * 1.08;
+        const backdropWidth = imageWidth * backdropScale;
+        const backdropHeight = imageHeight * backdropScale;
+        context.save();
+        context.globalAlpha = 0.5;
+        context.filter = "blur(24px)";
+        context.drawImage(
+          photo.image,
+          x + (width - backdropWidth) / 2,
+          y + (height - backdropHeight) / 2,
+          backdropWidth,
+          backdropHeight
+        );
+        context.restore();
+      }
+
+      context.drawImage(
+        photo.image,
+        x + (width - drawnWidth) * placement.focalX,
+        y + (height - drawnHeight) * placement.focalY,
+        drawnWidth,
+        drawnHeight
+      );
+      context.restore();
+    }
+
+    function getMotionOffset(progress, index) {
+      const remaining = 1 - clamp(progress, 0, 1);
+      const style = elements.motionSelect.value;
+      if (style === "elegant") return { x: 0, y: remaining * 28 };
+      if (style === "dynamic") return { x: remaining * (index % 2 ? -48 : 48), y: 0 };
+      if (style === "energy") return { x: remaining * (index % 2 ? -92 : 92), y: remaining * 35 };
+      return { x: 0, y: remaining * 50 };
+    }
+
+    function roundedRectPath(context, x, y, width, height, radius) {
+      const safeRadius = Math.min(radius, width / 2, height / 2);
+      context.beginPath();
+      context.moveTo(x + safeRadius, y);
+      context.lineTo(x + width - safeRadius, y);
+      context.quadraticCurveTo(x + width, y, x + width, y + safeRadius);
+      context.lineTo(x + width, y + height - safeRadius);
+      context.quadraticCurveTo(x + width, y + height, x + width - safeRadius, y + height);
+      context.lineTo(x + safeRadius, y + height);
+      context.quadraticCurveTo(x, y + height, x, y + height - safeRadius);
+      context.lineTo(x, y + safeRadius);
+      context.quadraticCurveTo(x, y, x + safeRadius, y);
+      context.closePath();
+    }
+
+    function drawSelection(rectangle) {
+      const context = elements.context;
+      context.save();
+      context.strokeStyle = "#70c6dc";
+      context.lineWidth = 8;
+      roundedRectPath(context, ...rectangle, 20);
+      context.stroke();
+      context.restore();
+    }
+
+    function drawLogo() {
+      if (!state.logo?.image) return;
+      const image = state.logo.image;
+      const width = Number(elements.logoSizeInput.value);
+      const height = width * (image.naturalHeight / image.naturalWidth);
+      const top = Number(elements.logoTopInput.value);
+      const position = elements.logoPositionSelect.value;
+      let x = 42;
+      if (position === "top-center") x = (CONFIG.width - width) / 2;
+      if (position === "top-right") x = CONFIG.width - width - 42;
+
+      elements.context.save();
+      elements.context.shadowColor = "rgba(0, 0, 0, 0.35)";
+      elements.context.shadowBlur = 10;
+      elements.context.drawImage(image, x, top, width, height);
+      elements.context.restore();
+    }
+
+    function drawEmptyCanvas(message) {
+      drawBackground(0);
+      elements.context.fillStyle = "rgba(245, 248, 251, 0.7)";
+      elements.context.font = "400 34px Barlow, Arial";
+      elements.context.textAlign = "center";
+      elements.context.fillText(message, CONFIG.width / 2, CONFIG.height / 2);
+      elements.context.textAlign = "start";
+    }
+
+    function handleCanvasPointerDown(event) {
+      const slotIndex = findSlotAtPointer(event);
+      state.selectedSlotIndex = slotIndex;
+      state.isDraggingCrop = slotIndex >= 0;
+      state.lastPointer = { x: event.clientX, y: event.clientY };
+      if (state.isDraggingCrop) elements.videoCanvas.setPointerCapture(event.pointerId);
+      updateSelectionControls();
+      drawCurrentScene();
+    }
+
+    function handleCanvasPointerMove(event) {
+      if (!state.isDraggingCrop || state.selectedSlotIndex < 0) return;
+      const scene = getCurrentScene();
+      const placement = scene?.items[state.selectedSlotIndex];
+      if (!placement) return;
+
+      const bounds = elements.videoCanvas.getBoundingClientRect();
+      const deltaX = (event.clientX - state.lastPointer.x) / bounds.width;
+      const deltaY = (event.clientY - state.lastPointer.y) / bounds.height;
+      placement.focalX = clamp(placement.focalX - deltaX * 1.8, 0, 1);
+      placement.focalY = clamp(placement.focalY - deltaY * 1.8, 0, 1);
+      state.lastPointer = { x: event.clientX, y: event.clientY };
+      drawCurrentScene();
+    }
+
+    function stopCropDrag() {
+      state.isDraggingCrop = false;
+      state.lastPointer = null;
+    }
+
+    function handleCanvasWheel(event) {
+      if (state.selectedSlotIndex < 0) return;
+      event.preventDefault();
+      const placement = getCurrentScene()?.items[state.selectedSlotIndex];
+      if (!placement) return;
+      placement.zoom = clamp(placement.zoom + (event.deltaY < 0 ? 0.05 : -0.05), 0.85, 1.7);
+      drawCurrentScene();
+    }
+
+    function findSlotAtPointer(event) {
+      const scene = getCurrentScene();
+      if (!scene) return -1;
+      const bounds = elements.videoCanvas.getBoundingClientRect();
+      const x = (event.clientX - bounds.left) * CONFIG.width / bounds.width;
+      const y = (event.clientY - bounds.top) * CONFIG.height / bounds.height;
+      const rectangles = getLayoutRectangles(scene.layoutKey, 0.65);
+      return rectangles.findIndex((rectangle, index) => {
+        if (index >= scene.items.length) return false;
+        const [rx, ry, width, height] = rectangle;
+        return x >= rx && x <= rx + width && y >= ry && y <= ry + height;
+      });
+    }
+
+    function handleCanvasDragOver(event) {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "copy";
+      elements.canvasFrame.classList.add("drop-active");
+    }
+
+    function handleCanvasDrop(event) {
+      event.preventDefault();
+      elements.canvasFrame.classList.remove("drop-active");
+      const photoId = event.dataTransfer.getData("text/plain");
+      const slotIndex = findSlotAtPointer(event);
+      if (!photoId || slotIndex < 0) {
+        setStatus("Drop the image directly over an existing frame.");
+        return;
+      }
+      state.selectedSlotIndex = slotIndex;
+      replaceSelectedSlot(photoId);
+      updateSelectionControls();
+    }
+
+    function moveSelectedPhoto(direction) {
+      const scene = getCurrentScene();
+      if (!scene || state.selectedSlotIndex < 0) return;
+      const targetIndex = state.selectedSlotIndex + direction;
+      if (targetIndex < 0 || targetIndex >= scene.items.length) return;
+      [scene.items[state.selectedSlotIndex], scene.items[targetIndex]] = [
+        scene.items[targetIndex], scene.items[state.selectedSlotIndex]
+      ];
+      state.selectedSlotIndex = targetIndex;
+      drawCurrentScene();
+    }
+
+    function toggleSelectedPhotoFit() {
+      const placement = getCurrentScene()?.items[state.selectedSlotIndex];
+      if (!placement) return;
+      placement.fitMode = placement.fitMode === "fill" ? "fit" : "fill";
+      drawCurrentScene();
+    }
+
+    function removeSelectedPhoto() {
+      const scene = getCurrentScene();
+      if (!scene || state.selectedSlotIndex < 0) return;
+      scene.items.splice(state.selectedSlotIndex, 1);
+      state.selectedSlotIndex = -1;
+      drawCurrentScene();
+      renderStoryboard();
+      renderPhotoLibrary();
+      updateSelectionControls();
+    }
+
+    function shuffleCurrentScene() {
+      const scene = getCurrentScene();
+      if (!scene) return;
+      const currentlyUsed = new Set(scene.items.map((item) => item.photoId));
+      const available = state.photos.filter((photo) => !currentlyUsed.has(photo.id));
+      shuffleInPlace(available);
+      scene.items = scene.items.map((item, index) => available[index] ? clonePlacement(available[index]) : item);
+      state.selectedSlotIndex = -1;
+      drawCurrentScene();
+      renderPhotoLibrary();
+    }
+
+    function duplicateCurrentScene() {
+      const scene = getCurrentScene();
+      if (!scene) return;
+      state.scenes.splice(state.currentSceneIndex + 1, 0, cloneScene(scene));
+      selectScene(state.currentSceneIndex + 1);
+      updateSceneCount();
+    }
+
+    function deleteCurrentScene() {
+      if (!state.scenes.length) return;
+      state.scenes.splice(state.currentSceneIndex, 1);
+      state.currentSceneIndex = clamp(state.currentSceneIndex, 0, Math.max(0, state.scenes.length - 1));
+      state.selectedSlotIndex = -1;
+      updateSceneCount();
+      renderStoryboard();
+      renderPhotoLibrary();
+      if (state.scenes.length) selectScene(state.currentSceneIndex);
+      else drawEmptyCanvas("No scenes available");
+    }
+
+    function moveCurrentScene(direction) {
+      const targetIndex = state.currentSceneIndex + direction;
+      if (targetIndex < 0 || targetIndex >= state.scenes.length) return;
+      [state.scenes[state.currentSceneIndex], state.scenes[targetIndex]] = [
+        state.scenes[targetIndex], state.scenes[state.currentSceneIndex]
+      ];
+      state.currentSceneIndex = targetIndex;
+      renderStoryboard();
+      updateSceneLabel();
+    }
+
+    async function playPreview() {
+      if (state.isPreviewing || !state.scenes.length) return;
+      state.isPreviewing = true;
+      const originalSceneIndex = state.currentSceneIndex;
+      const previewSceneCount = Math.min(8, state.scenes.length);
+      const secondsPerScene = 2.2;
+      const startedAt = performance.now();
+
+      function animate(now) {
+        const elapsedSeconds = (now - startedAt) / 1000;
+        const previewIndex = Math.min(previewSceneCount - 1, Math.floor(elapsedSeconds / secondsPerScene));
+        const sceneProgress = (elapsedSeconds % secondsPerScene) / secondsPerScene;
+        drawScene(state.scenes[previewIndex], sceneProgress, false);
+        elements.sceneLabel.textContent = `Preview scene ${previewIndex + 1} of ${previewSceneCount}`;
+
+        if (elapsedSeconds < previewSceneCount * secondsPerScene) {
+          requestAnimationFrame(animate);
+        } else {
+          state.isPreviewing = false;
+          selectScene(originalSceneIndex);
+        }
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    function renderVideo() {
+      if (!state.scenes.length) return;
+      const mimeType = selectSupportedMimeType();
+      if (!mimeType) {
+        setStatus("This browser cannot record the canvas. Use the latest Microsoft Edge or Google Chrome.");
+        return;
+      }
+
+      const duration = Number(elements.durationSelect.value);
+      const secondsPerScene = duration / state.scenes.length;
+      const stream = elements.videoCanvas.captureStream(CONFIG.framesPerSecond);
+      const recorder = new MediaRecorder(stream, {
+        mimeType,
+        videoBitsPerSecond: CONFIG.videoBitrate
+      });
+      const chunks = [];
+      const originalSceneIndex = state.currentSceneIndex;
+      const startedAt = performance.now();
+      elements.renderButton.disabled = true;
+
+      recorder.addEventListener("dataavailable", (event) => {
+        if (event.data.size > 0) chunks.push(event.data);
+      });
+
+      recorder.addEventListener("stop", () => {
+        const extension = mimeType.includes("mp4") ? "mp4" : "webm";
+        const blob = new Blob(chunks, { type: mimeType });
+        const downloadUrl = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = downloadUrl;
+        link.download = `cxo-event-montage-1080x1350.${extension}`;
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(downloadUrl), 10_000);
+        elements.renderButton.disabled = false;
+        state.currentSceneIndex = originalSceneIndex;
+        setProgress(1);
+        setStatus(`Render complete. ${extension.toUpperCase()} downloaded.`);
+        drawCurrentScene();
+      });
+
+      recorder.start(1000);
+
+      function renderFrame(now) {
+        const elapsedSeconds = (now - startedAt) / 1000;
+        const renderSceneIndex = Math.min(state.scenes.length - 1, Math.floor(elapsedSeconds / secondsPerScene));
+        const sceneProgress = (elapsedSeconds - renderSceneIndex * secondsPerScene) / secondsPerScene;
+        drawScene(state.scenes[renderSceneIndex], sceneProgress, false);
+        const totalProgress = clamp(elapsedSeconds / duration, 0, 1);
+        setProgress(totalProgress);
+        setStatus(`Rendering ${Math.round(totalProgress * 100)}%`);
+
+        if (elapsedSeconds < duration) requestAnimationFrame(renderFrame);
+        else recorder.stop();
+      }
+
+      requestAnimationFrame(renderFrame);
+    }
+
+    function selectSupportedMimeType() {
+      const candidates = [
+        "video/mp4;codecs=avc1.42E01E",
+        "video/webm;codecs=vp9",
+        "video/webm"
+      ];
+      return candidates.find((type) => MediaRecorder.isTypeSupported(type)) || "";
+    }
+
+    function updateSelectionControls() {
+      const scene = getCurrentScene();
+      const hasSelection = Boolean(scene?.items[state.selectedSlotIndex]);
+      elements.moveLeftButton.disabled = !hasSelection;
+      elements.moveRightButton.disabled = !hasSelection;
+      elements.fitButton.disabled = !hasSelection;
+      elements.removeButton.disabled = !hasSelection;
+    }
+
+    function updateSceneLabel() {
+      elements.sceneLabel.textContent = state.scenes.length
+        ? `Scene ${state.currentSceneIndex + 1} of ${state.scenes.length}`
+        : "Scene 0 of 0";
+    }
+
+    function updateSceneCount() {
+      elements.sceneCount.textContent = String(state.scenes.length);
+      elements.renderButton.disabled = state.scenes.length === 0;
+      updateSceneLabel();
+    }
+
+    function setStatus(message) {
+      elements.statusText.textContent = message;
+    }
+
+    function setProgress(value) {
+      elements.progressBar.style.width = `${Math.round(clamp(value, 0, 1) * 100)}%`;
+    }
+
+    function shuffleInPlace(array) {
+      for (let index = array.length - 1; index > 0; index -= 1) {
+        const randomIndex = Math.floor(Math.random() * (index + 1));
+        [array[index], array[randomIndex]] = [array[randomIndex], array[index]];
+      }
+      return array;
+    }
+
+    function clamp(value, minimum, maximum) {
+      return Math.min(maximum, Math.max(minimum, value));
+    }
   </script>
- </body>
+</body>
 </html>
