@@ -1,1 +1,0 @@
-Place event photos here. Use simple sequential names such as 001.jpg, 002.jpg, 003.jpg. Then update the images array in src/Video.tsx. For a large batch, the included defaults are only placeholders.
