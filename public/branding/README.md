@@ -1,0 +1,1 @@
+Place the CxO logo and optional transparent architectural line-art PNG files here. The starter currently uses a clean text logo so it runs without missing assets.
